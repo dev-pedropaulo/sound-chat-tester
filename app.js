@@ -12,8 +12,7 @@ const FEEDBACK_WEBHOOK_URL = 'https://agentesn8n-n8n.cqc86v.easypanel.host/webho
 // Chaves locais
 const STORAGE_KEYS = {
   SESSION_ID: 'sound_chat_session_id',
-  FEEDBACKS: 'sound_chat_feedbacks',
-  PENDING_FEEDBACKS: 'sound_chat_pending_feedbacks'
+  FEEDBACKS: 'sound_chat_feedbacks'
 };
 
 const WELCOME_MESSAGE = `Olá, tudo bem? Aqui é o Flávio, da Sound Agriculture! Prazer falar com você.
@@ -78,23 +77,17 @@ document.addEventListener('DOMContentLoaded', () => {
   loadFeedbacks();
   setupEventListeners();
   autoResizeTextarea();
-  flushPendingFeedbacks();
+
+  // Garante que nenhum erro marcado fique sem chegar ao servidor
+  syncUnsentFeedbacks();
+  window.addEventListener('online', syncUnsentFeedbacks);
+  setInterval(syncUnsentFeedbacks, 30000);
 });
 
 // ==========================================
 // ENVIO DOS ERROS PARA O SERVIDOR (n8n)
 // ==========================================
-function getPendingFeedbacks() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.PENDING_FEEDBACKS)) || [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function setPendingFeedbacks(list) {
-  localStorage.setItem(STORAGE_KEYS.PENDING_FEEDBACKS, JSON.stringify(list));
-}
+const sendingFeedbackIds = new Set();
 
 async function postFeedback(record) {
   const response = await fetch(FEEDBACK_WEBHOOK_URL, {
@@ -114,32 +107,28 @@ async function postFeedback(record) {
   if (!response.ok) throw new Error('HTTP ' + response.status);
 }
 
-// Tenta enviar; se falhar, guarda na fila para reenviar depois
+// Envia um erro ao servidor e marca como enviado quando o n8n confirma (HTTP 200)
 async function sendFeedbackToServer(record) {
+  if (record.synced || sendingFeedbackIds.has(record.id)) return;
+  sendingFeedbackIds.add(record.id);
   try {
     await postFeedback(record);
+    record.synced = true;
+    saveFeedbacks();
+    if (dom.feedbackDrawer.classList.contains('active')) renderFeedbackList();
   } catch (err) {
-    console.warn('Não foi possível enviar o erro ao servidor, será reenviado depois.', err);
-    const pending = getPendingFeedbacks();
-    pending.push(record);
-    setPendingFeedbacks(pending);
+    console.warn('Não foi possível enviar o erro ao servidor, será reenviado automaticamente.', err);
+  } finally {
+    sendingFeedbackIds.delete(record.id);
   }
 }
 
-// Reenvia os erros que ficaram pendentes (ex.: sem internet)
-async function flushPendingFeedbacks() {
-  const pending = getPendingFeedbacks();
-  if (pending.length === 0) return;
-
-  const stillPending = [];
-  for (const record of pending) {
-    try {
-      await postFeedback(record);
-    } catch (err) {
-      stillPending.push(record);
-    }
+// Reenvia todos os erros que ainda não foram confirmados pelo servidor
+async function syncUnsentFeedbacks() {
+  const unsent = state.feedbacks.filter(fb => !fb.synced);
+  for (const record of unsent) {
+    await sendFeedbackToServer(record);
   }
-  setPendingFeedbacks(stillPending);
 }
 
 function initSession(forceNew = false) {
@@ -601,7 +590,8 @@ function handleSaveFeedback() {
     botResponse: rawMsg,
     category: category,
     severity: severity,
-    comment: comment
+    comment: comment,
+    synced: false
   };
 
   state.feedbacks.unshift(feedbackRecord);
@@ -680,6 +670,9 @@ function renderFeedbackList() {
         <div class="feedback-meta-footer">
           <span style="padding: 2px 6px; border-radius: 4px; ${severityStyle}">
             Gravidade: ${escapeHtml(item.severity)}
+          </span>
+          <span style="font-size: 10.5px; font-weight: 600; color: ${item.synced ? '#166534' : '#92400E'};" title="${item.synced ? 'Este erro já foi gravado no servidor da Sound' : 'Ainda não chegou ao servidor. O site tenta reenviar sozinho.'}">
+            ${item.synced ? '☁️ Enviado' : '⏳ Aguardando envio'}
           </span>
           <button onclick="deleteSingleFeedback('${item.id}')" style="background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 11px;" title="Remover apontamento">
             🗑️ Excluir
