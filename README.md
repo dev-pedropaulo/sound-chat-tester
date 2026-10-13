@@ -33,7 +33,8 @@ Aplicação web desenvolvida para a equipe da **Sound Agriculture** testar, homo
 4. **Painel Geral de Auditoria & Exportação:**
    - Gaveta lateral (*Drawer*) que lista todos os feedbacks apontados por qualquer membro da equipe.
    - Identificação do testador (`Carlos`, `Agrônomo Sound`, etc.).
-   - Persistência automática em `localStorage`.
+   - Cada erro marcado é enviado automaticamente ao n8n e gravado na **Data Table `sound_chat_feedbacks`** (veja a seção abaixo).
+   - Backup local no navegador (`localStorage`) e reenvio automático se a internet falhar.
    - **📥 Exportar JSON:** Arquivo completo para ajustes no prompt e nós do n8n.
    - **📊 Exportar CSV (Excel):** Planilha formatada com codificação UTF-8 para análise em reuniões de alinhamento.
    - **💾 Baixar Transcrição:** Exporta o diálogo completo em `.txt`.
@@ -46,6 +47,19 @@ Aplicação web desenvolvida para a equipe da **Sound Agriculture** testar, homo
      - Armadilha de Promessa de Sacas Fixas.
      - Dúvida técnica de Mistura em Tanque.
      - Desabafo com seca/perda de safra (Regra do Recuo).
+
+---
+
+## 🗃️ Onde os erros ficam salvos (n8n → Data Table)
+
+Os erros marcados pela equipe vão para uma Data Table no n8n da Sound, para você ver tudo em um só lugar.
+
+1. No n8n `agentesn8n-n8n.cqc86v.easypanel.host`, importe o arquivo [`n8n-workflow-feedbacks.json`](n8n-workflow-feedbacks.json) (**Workflows → Import from File**).
+2. Abra o workflow e execute o ramo *"Executar 1x para criar a tabela"*. Isso cria a tabela `sound_chat_feedbacks`.
+3. **Publique/ative** o workflow.
+4. Pronto. Para ver os erros: **n8n → Data Tables → `sound_chat_feedbacks`**.
+
+O site envia para `POST /webhook/sound-chat-feedback`. A URL está na constante `FEEDBACK_WEBHOOK_URL` do [`app.js`](app.js).
 
 ---
 

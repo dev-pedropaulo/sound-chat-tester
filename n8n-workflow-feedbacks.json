@@ -1,0 +1,128 @@
+{
+  "name": "Sound Agriculture — Receber Feedbacks do Chat (Data Table)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sound-chat-feedback",
+        "authentication": "none",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "id": "a1f0c2d4-0001-4b6e-9a10-5f0000000001",
+      "name": "Webhook Feedback",
+      "webhookId": "5b1c7d52-8e3a-4f0b-9c7e-2d6a4b0e1f33"
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "sound_chat_feedbacks"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "data_hora": "={{ $json.body.dataHora }}",
+            "sessao": "={{ $json.body.sessao }}",
+            "perfil_atribuido": "={{ $json.body.perfilAtribuido }}",
+            "mensagem_usuario": "={{ $json.body.mensagemUsuario }}",
+            "resposta_flavio": "={{ $json.body.respostaFlavio }}",
+            "tipo_erro": "={{ $json.body.tipoErro }}",
+            "gravidade": "={{ $json.body.gravidade }}",
+            "comentario": "={{ $json.body.comentario }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "data_hora", "displayName": "data_hora", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "sessao", "displayName": "sessao", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "perfil_atribuido", "displayName": "perfil_atribuido", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "mensagem_usuario", "displayName": "mensagem_usuario", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "resposta_flavio", "displayName": "resposta_flavio", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "tipo_erro", "displayName": "tipo_erro", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "gravidade", "displayName": "gravidade", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "comentario", "displayName": "comentario", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [260, 0],
+      "id": "a1f0c2d4-0002-4b6e-9a10-5f0000000002",
+      "name": "Salvar Feedback na Tabela"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [520, 0],
+      "id": "a1f0c2d4-0003-4b6e-9a10-5f0000000003",
+      "name": "Responder OK"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 260],
+      "id": "a1f0c2d4-0004-4b6e-9a10-5f0000000004",
+      "name": "Executar 1x para criar a tabela"
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "sound_chat_feedbacks",
+        "columns": {
+          "column": [
+            { "name": "data_hora", "type": "string" },
+            { "name": "sessao", "type": "string" },
+            { "name": "perfil_atribuido", "type": "string" },
+            { "name": "mensagem_usuario", "type": "string" },
+            { "name": "resposta_flavio", "type": "string" },
+            { "name": "tipo_erro", "type": "string" },
+            { "name": "gravidade", "type": "string" },
+            { "name": "comentario", "type": "string" }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [260, 260],
+      "id": "a1f0c2d4-0005-4b6e-9a10-5f0000000005",
+      "name": "Criar Tabela sound_chat_feedbacks"
+    }
+  ],
+  "connections": {
+    "Webhook Feedback": {
+      "main": [[{ "node": "Salvar Feedback na Tabela", "type": "main", "index": 0 }]]
+    },
+    "Salvar Feedback na Tabela": {
+      "main": [[{ "node": "Responder OK", "type": "main", "index": 0 }]]
+    },
+    "Executar 1x para criar a tabela": {
+      "main": [[{ "node": "Criar Tabela sound_chat_feedbacks", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

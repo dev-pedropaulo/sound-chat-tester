@@ -6,10 +6,14 @@
 // Webhook de atendimento
 const WEBHOOK_URL = 'https://agentesn8n-n8n.cqc86v.easypanel.host/webhook/ab47b89d-3100-4b96-b01c-3281b673cb2c/chat';
 
+// Webhook que grava os erros marcados na Data Table do n8n
+const FEEDBACK_WEBHOOK_URL = 'https://agentesn8n-n8n.cqc86v.easypanel.host/webhook/sound-chat-feedback';
+
 // Chaves locais
 const STORAGE_KEYS = {
   SESSION_ID: 'sound_chat_session_id',
-  FEEDBACKS: 'sound_chat_feedbacks'
+  FEEDBACKS: 'sound_chat_feedbacks',
+  PENDING_FEEDBACKS: 'sound_chat_pending_feedbacks'
 };
 
 const WELCOME_MESSAGE = `Olá, tudo bem? Aqui é o Flávio, da Sound Agriculture! Prazer falar com você.
@@ -74,7 +78,69 @@ document.addEventListener('DOMContentLoaded', () => {
   loadFeedbacks();
   setupEventListeners();
   autoResizeTextarea();
+  flushPendingFeedbacks();
 });
+
+// ==========================================
+// ENVIO DOS ERROS PARA O SERVIDOR (n8n)
+// ==========================================
+function getPendingFeedbacks() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.PENDING_FEEDBACKS)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function setPendingFeedbacks(list) {
+  localStorage.setItem(STORAGE_KEYS.PENDING_FEEDBACKS, JSON.stringify(list));
+}
+
+async function postFeedback(record) {
+  const response = await fetch(FEEDBACK_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      dataHora: record.formattedTime,
+      sessao: record.sessionId || '',
+      perfilAtribuido: record.attributedProfile || '',
+      mensagemUsuario: record.userPrompt || '',
+      respostaFlavio: record.botResponse || '',
+      tipoErro: record.category || '',
+      gravidade: record.severity || '',
+      comentario: record.comment || ''
+    })
+  });
+  if (!response.ok) throw new Error('HTTP ' + response.status);
+}
+
+// Tenta enviar; se falhar, guarda na fila para reenviar depois
+async function sendFeedbackToServer(record) {
+  try {
+    await postFeedback(record);
+  } catch (err) {
+    console.warn('Não foi possível enviar o erro ao servidor, será reenviado depois.', err);
+    const pending = getPendingFeedbacks();
+    pending.push(record);
+    setPendingFeedbacks(pending);
+  }
+}
+
+// Reenvia os erros que ficaram pendentes (ex.: sem internet)
+async function flushPendingFeedbacks() {
+  const pending = getPendingFeedbacks();
+  if (pending.length === 0) return;
+
+  const stillPending = [];
+  for (const record of pending) {
+    try {
+      await postFeedback(record);
+    } catch (err) {
+      stillPending.push(record);
+    }
+  }
+  setPendingFeedbacks(stillPending);
+}
 
 function initSession(forceNew = false) {
   if (forceNew || !localStorage.getItem(STORAGE_KEYS.SESSION_ID)) {
@@ -529,6 +595,7 @@ function handleSaveFeedback() {
   const feedbackRecord = {
     id: 'fb-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6),
     formattedTime: new Date().toLocaleString('pt-BR'),
+    sessionId: state.sessionId,
     attributedProfile: state.currentProfile ? state.currentProfile.label : 'Triagem Inicial',
     userPrompt: state.lastUserMessage || '(Início da conversa)',
     botResponse: rawMsg,
@@ -539,6 +606,7 @@ function handleSaveFeedback() {
 
   state.feedbacks.unshift(feedbackRecord);
   saveFeedbacks();
+  sendFeedbackToServer(feedbackRecord);
 
   // Altera visualmente o botão na resposta para indicar que foi registrado
   state.activeFlagTarget.outerHTML = `
