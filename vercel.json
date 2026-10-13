@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "name": "sound-chat-validator",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
