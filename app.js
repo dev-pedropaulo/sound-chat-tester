@@ -207,9 +207,13 @@ function detectProfileFromContext(userMsg, botMsg, rawProfile) {
   }
 
   if (
+    combined.includes('atendimentocomercial@sound.ag') ||
     combined.includes('contato@soundag') ||
     combined.includes('assessoria de comunicação') ||
-    combined.includes('carreiras no linkedin')
+    combined.includes('carreiras no linkedin') ||
+    combined.includes('currículo') ||
+    combined.includes('curriculo') ||
+    combined.includes('oferecer serviços')
   ) {
     return 'FORNECEDOR';
   }
